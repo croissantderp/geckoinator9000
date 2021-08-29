@@ -83,14 +83,10 @@ namespace geckoinator9000
                 return;
             }
 
+            Random random = new Random();
+
             foreach (string path in directory)
             {
-                if (path.Split(".").Last() != "png")
-                {
-                    Console.WriteLine("Only pngs allowed, error: " + path);
-                    continue;
-                }
-
                 Image image = Image.FromFile(path);
                 
                 double sourceRatio = (double)x / image.Width;
@@ -102,15 +98,13 @@ namespace geckoinator9000
                 Bitmap sourceBitmap = new Bitmap(image, new Size(sx, sy));
                 Bitmap bitmap = new Bitmap((int)Math.Round(image.Width * ratio), roundRatio(image.Height * ratio));
                 
-                Random random = new Random();
-
                 for (int i = 0; i < sx; i++)
                 {
                     for (int j = 0; j < sy; j++)
                     {
                         Color c = sourceBitmap.GetPixel(i, j);
 
-                        string key = getClosestColor(c) + "/";
+                        string key = getClosestColor(c);
 
                         Regex regex = new Regex(@$"^{key}.+");
 
@@ -124,6 +118,8 @@ namespace geckoinator9000
                         {
                             Bitmap finalImage = new Bitmap(Image.FromFile(geckoDict[finalKey]), 32, 32);
                             g.DrawImage(finalImage, i * 32, j * 32);
+                            finalImage.Dispose();
+                            g.Dispose();
                         }
                     }
                 }
@@ -144,7 +140,7 @@ namespace geckoinator9000
             double inputG = Convert.ToDouble(input.G);
             double inputB = Convert.ToDouble(input.B);
 
-            double distance = 256;
+            double distance = 500.0;
 
             string closestKey = "";
 
@@ -191,6 +187,11 @@ namespace geckoinator9000
 
             foreach (string path in directory)
             {
+                if (path.Split(".").Last() == "txt")
+                {
+                    continue;
+                }
+
                 if (path.Split(".").Last() != "png")
                 {
                     Console.WriteLine("Only pngs allowed, error: " + path);
@@ -225,6 +226,8 @@ namespace geckoinator9000
 
                 geckoDict.Add((r / total) + "/" + (g / total) + "/" + (b / total) + "/" + extra, path);
                 bitmap.Dispose();
+
+                Console.WriteLine("Finished: " + path);
             }
 
             StreamWriter data = new StreamWriter(@"../../../sourceImgs/data.txt");
