@@ -14,7 +14,7 @@ namespace geckoinator9000
     {
         public static Dictionary<string, string> geckoDict = new Dictionary<string, string>();
 
-        static string options = "Options:\n0: show options\n1: load images into memory\n2: parse images in /input/ and upload to /output/\n3: exits the program";
+        static string options = "Options:\n0: show options\n1: load images into memory\n2: parse images in /input/ and uploads to /output/\n3: exits the program";
 
         static void Main(string[] args)
         {
@@ -28,9 +28,11 @@ namespace geckoinator9000
 
                 switch (option)
                 {
+                    //options
                     case "0":
                         Console.WriteLine(options);
                         break;
+                    //load geckos into memory
                     case "1":
                         if (File.Exists(@"../../../sourceImgs/data.txt"))
                         {
@@ -49,6 +51,7 @@ namespace geckoinator9000
                             Console.WriteLine("load complete, written to file");
                         }
                         break;
+                    //creates mosaics
                     case "2":
                         if (geckoDict.Count() == 0)
                         {
@@ -69,12 +72,14 @@ namespace geckoinator9000
 
                         Console.WriteLine("generation done, go to output directory to see results");
                         break;
+                    //quits program
                     case "3":
                         return;
                 }
             }
         }
 
+        //geckofys all the images in input folder
         static void generateImage(int x)
         {
             string[] directory = Directory.GetFiles(@"../../../input");
@@ -87,11 +92,14 @@ namespace geckoinator9000
 
             Random random = new Random();
 
+            //allows images to be geckofy'd in parallel
             Parallel.ForEach(directory, path => generateSingleImage(path, random, x));
         }
 
+        //geckofys a single image
         static void generateSingleImage(string path, Random random, int x)
         {
+            //calculate image stats
             Image image = Image.FromFile(path);
 
             double sourceRatio = (double)x / image.Width;
@@ -103,22 +111,28 @@ namespace geckoinator9000
             Bitmap sourceBitmap = new Bitmap(image, new Size(sx, sy));
             Bitmap bitmap = new Bitmap((int)Math.Round(image.Width * ratio), roundRatio(image.Height * ratio));
 
+            //gets color of pixels in small source image
             for (int i = 0; i < sx; i++)
             {
                 for (int j = 0; j < sy; j++)
                 {
+                    //gets color of pixel
                     Color c = sourceBitmap.GetPixel(i, j);
 
+                    //gets closest color present in gecko dictionary
                     string key = getClosestColor(c);
 
+                    //matches any key with closest color
                     Regex regex = new Regex(@$"^{key}.+");
 
                     string[] keys = geckoDict.Keys.Where(a => regex.Match(a).Success).ToArray();
 
+                    //chooses a random one of the keys if more than 1 present
                     int index = random.Next(keys.Length);
 
                     string finalKey = keys[index];
 
+                    //appends gecko image to final bitmap
                     using (Graphics g = Graphics.FromImage(bitmap))
                     {
                         Bitmap finalImage = new Bitmap(Image.FromFile(geckoDict[finalKey]), 32, 32);
@@ -130,8 +144,11 @@ namespace geckoinator9000
             }
 
             Console.WriteLine("finished " + path.Split("\\").Last());
+
+            //saves image as png
             bitmap.Save(@$"../../../output/{path.Split("\\").Last()}", ImageFormat.Png);
 
+            //disposes all disposable stuff
             image.Dispose();
             sourceBitmap.Dispose();
             bitmap.Dispose();
@@ -148,6 +165,7 @@ namespace geckoinator9000
 
             string closestKey = "";
 
+            //gets closest color present in dictionary
             foreach (string key in geckoDict.Keys)
             {
                 double red = Math.Pow(double.Parse(key.Split("/")[0]) - inputR, 2.0);
@@ -168,9 +186,11 @@ namespace geckoinator9000
                 }
             }
 
+            //returns closest color
             return closestKey.Split("/")[0] + "/" + closestKey.Split("/")[1] + "/" + closestKey.Split("/")[2];
         }
 
+        //rounds the ratio of the image to nearest 32
         static int roundRatio(double y)
         {
             double inverse = 32 / (double)1;
@@ -179,6 +199,7 @@ namespace geckoinator9000
             return (int)Math.Round(dividend / inverse);
         }
 
+        //parses images in sourceImgs and saves them into a dictionary
         static void loadImages()
         {
             string[] directory = Directory.GetFiles(@"../../../sourceImgs");
@@ -191,14 +212,10 @@ namespace geckoinator9000
 
             foreach (string path in directory)
             {
-                if (path.Split(".").Last() == "txt")
-                {
-                    continue;
-                }
-
+                //skips non-image content
                 if (path.Split(".").Last() != "png")
                 {
-                    Console.WriteLine("Only pngs allowed, error: " + path);
+                    Console.WriteLine("Only pngs allowed, continuing: " + path);
                     continue;
                 }
 
@@ -208,10 +225,11 @@ namespace geckoinator9000
 
                 if (bitmap.Height != bitmap.Width)
                 {
-                    Console.WriteLine("Only square images allowed, error: " + path);
+                    Console.WriteLine("Only square images allowed, continuing: " + path);
                     continue;
                 }
 
+                //gets color values of every pixel
                 for (int i = 0; i < bitmap.Height; i++)
                 {
                     for (int j = 0; j < bitmap.Width; j++)
@@ -226,14 +244,17 @@ namespace geckoinator9000
                     }
                 }
 
+                //extra digit in case of repeat results
                 int extra = geckoDict.Keys.Where(a => a.Contains((r / total) + "/" + (g / total) + "/" + (b / total))).Count();
 
+                //averaging red, green and blue values
                 geckoDict.Add((r / total) + "/" + (g / total) + "/" + (b / total) + "/" + extra, path);
                 bitmap.Dispose();
 
                 Console.WriteLine("Finished: " + path);
             }
 
+            //writes dictionary to file for future use
             StreamWriter data = new StreamWriter(@"../../../sourceImgs/data.txt");
             data.WriteLine(DictToString(geckoDict, "{0},{1};"));
             data.Dispose();
