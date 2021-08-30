@@ -121,10 +121,8 @@ namespace geckoinator9000
             int sx = (int)Math.Round(image.Width * sourceRatio);
             int sy = (int)Math.Round(image.Height * sourceRatio);
 
-            double ratio = (double)(geckoWidth * x) / image.Width;
-
             Bitmap sourceBitmap = new Bitmap(image, new Size(sx, sy));
-            Bitmap bitmap = new Bitmap((int)Math.Round(image.Width * ratio), roundRatio(image.Height * ratio, geckoWidth));
+            Bitmap bitmap = new Bitmap(geckoWidth * sx, geckoWidth * sy);
 
             //gets color of pixels in small source image
             for (int i = 0; i < sx; i++)
@@ -205,15 +203,6 @@ namespace geckoinator9000
 
             //returns closest color
             return closestKey.Split("/")[0] + "/" + closestKey.Split("/")[1] + "/" + closestKey.Split("/")[2];
-        }
-
-        //rounds the ratio of the image to nearest geckoWidth
-        static int roundRatio(double y, int geckoWidth)
-        {
-            double inverse = geckoWidth / (double)1;
-            double dividend = y * inverse;
-            dividend = Math.Round(dividend);
-            return (int)Math.Round(dividend / inverse);
         }
 
         //parses images in sourceImgs and saves them into a dictionary
