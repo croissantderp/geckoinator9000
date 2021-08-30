@@ -43,12 +43,12 @@ namespace geckoinator9000
                             .Where(part => part.Length == 2)
                             .ToDictionary(a => a[0], a=> a[1]);
                             data.Dispose();
-                            Console.WriteLine("load complete");
+                            Console.WriteLine("Load complete");
                         }
                         else
                         {
                             loadImages();
-                            Console.WriteLine("load complete, written to file");
+                            Console.WriteLine("Load complete, written to file");
                         }
                         break;
                     //creates mosaics
@@ -59,7 +59,7 @@ namespace geckoinator9000
                             break;
                         }
 
-                        Console.WriteLine("enter number of images to tile horizontally:");
+                        Console.WriteLine("Enter number of images to tile horizontally (high values will lead to long processing times, recommended cap: 128):");
                         Console.Write("> ");
                         int x;
                         if (!int.TryParse(Console.ReadLine(), out x))
@@ -68,9 +68,24 @@ namespace geckoinator9000
                             break;
                         }
 
-                        generateImage(x);
+                        Console.WriteLine("Enter width of individual gecko (default 32):");
+                        Console.Write("> ");
+                        int geckoWidth;
+                        string temp = Console.ReadLine();
+                        if (temp == "")
+                        {
+                            geckoWidth = 32;
+                        }
+                        else if (!int.TryParse(temp, out geckoWidth))
+                        {
+                            Console.WriteLine("Input not a number");
+                            break;
+                        }
 
-                        Console.WriteLine("generation done, go to output directory to see results");
+                        Console.WriteLine("Starting process...");
+                        generateImage(x, geckoWidth);
+
+                        Console.WriteLine("Generation done, go to output directory to see results");
                         break;
                     //quits program
                     case "3":
@@ -80,7 +95,7 @@ namespace geckoinator9000
         }
 
         //geckofys all the images in input folder
-        static void generateImage(int x)
+        static void generateImage(int x, int geckoWidth)
         {
             string[] directory = Directory.GetFiles(@"../../../input");
 
@@ -93,11 +108,11 @@ namespace geckoinator9000
             Random random = new Random();
 
             //allows images to be geckofy'd in parallel
-            Parallel.ForEach(directory, path => generateSingleImage(path, random, x));
+            Parallel.ForEach(directory, path => generateSingleImage(path, random, x, geckoWidth));
         }
 
         //geckofys a single image
-        static void generateSingleImage(string path, Random random, int x)
+        static void generateSingleImage(string path, Random random, int x, int geckoWidth)
         {
             //calculate image stats
             Image image = Image.FromFile(path);
@@ -106,10 +121,10 @@ namespace geckoinator9000
             int sx = (int)Math.Round(image.Width * sourceRatio);
             int sy = (int)Math.Round(image.Height * sourceRatio);
 
-            double ratio = (double)(32 * x) / image.Width;
+            double ratio = (double)(geckoWidth * x) / image.Width;
 
             Bitmap sourceBitmap = new Bitmap(image, new Size(sx, sy));
-            Bitmap bitmap = new Bitmap((int)Math.Round(image.Width * ratio), roundRatio(image.Height * ratio));
+            Bitmap bitmap = new Bitmap((int)Math.Round(image.Width * ratio), roundRatio(image.Height * ratio, geckoWidth));
 
             //gets color of pixels in small source image
             for (int i = 0; i < sx; i++)
@@ -135,18 +150,20 @@ namespace geckoinator9000
                     //appends gecko image to final bitmap
                     using (Graphics g = Graphics.FromImage(bitmap))
                     {
-                        Bitmap finalImage = new Bitmap(Image.FromFile(geckoDict[finalKey]), 32, 32);
-                        g.DrawImage(finalImage, i * 32, j * 32);
+                        Bitmap finalImage = new Bitmap(Image.FromFile(geckoDict[finalKey]), geckoWidth, geckoWidth);
+                        g.DrawImage(finalImage, i * geckoWidth, j * geckoWidth);
                         finalImage.Dispose();
                         g.Dispose();
                     }
                 }
             }
 
-            Console.WriteLine("finished " + path.Split("\\").Last());
+            string name = path.Split("\\").Last();
+
+            Console.WriteLine("Finished " + name);
 
             //saves image as png
-            bitmap.Save(@$"../../../output/{path.Split("\\").Last()}", ImageFormat.Png);
+            bitmap.Save(@$"../../../output/{string.Join(".", name.Split(".").SkipLast(1))}.png", ImageFormat.Png);
 
             //disposes all disposable stuff
             image.Dispose();
@@ -190,10 +207,10 @@ namespace geckoinator9000
             return closestKey.Split("/")[0] + "/" + closestKey.Split("/")[1] + "/" + closestKey.Split("/")[2];
         }
 
-        //rounds the ratio of the image to nearest 32
-        static int roundRatio(double y)
+        //rounds the ratio of the image to nearest geckoWidth
+        static int roundRatio(double y, int geckoWidth)
         {
-            double inverse = 32 / (double)1;
+            double inverse = geckoWidth / (double)1;
             double dividend = y * inverse;
             dividend = Math.Round(dividend);
             return (int)Math.Round(dividend / inverse);
@@ -212,52 +229,68 @@ namespace geckoinator9000
 
             foreach (string path in directory)
             {
-                //skips non-image content
-                if (path.Split(".").Last() != "png")
-                {
-                    Console.WriteLine("Only pngs allowed, continuing: " + path);
-                    continue;
-                }
-
-                Bitmap bitmap = new Bitmap(path);
-                int total = 0;
-                int r = 0, g = 0, b = 0;
-
-                if (bitmap.Height != bitmap.Width)
-                {
-                    Console.WriteLine("Only square images allowed, continuing: " + path);
-                    continue;
-                }
-
-                //gets color values of every pixel
-                for (int i = 0; i < bitmap.Height; i++)
-                {
-                    for (int j = 0; j < bitmap.Width; j++)
-                    {
-                        Color c = bitmap.GetPixel(j, i);
-
-                        r += c.R;
-                        g += c.G;
-                        b += c.B;
-
-                        total++;
-                    }
-                }
-
-                //extra digit in case of repeat results
-                int extra = geckoDict.Keys.Where(a => a.Contains((r / total) + "/" + (g / total) + "/" + (b / total))).Count();
-
-                //averaging red, green and blue values
-                geckoDict.Add((r / total) + "/" + (g / total) + "/" + (b / total) + "/" + extra, path);
-                bitmap.Dispose();
-
-                Console.WriteLine("Finished: " + path);
+                loadSingleImage(path);
             }
 
             //writes dictionary to file for future use
             StreamWriter data = new StreamWriter(@"../../../sourceImgs/data.txt");
             data.WriteLine(DictToString(geckoDict, "{0},{1};"));
             data.Dispose();
+        }
+
+        static void loadSingleImage(string path)
+        {
+            //skips non-image content
+            if (path.Split(".").Last() != "png")
+            {
+                Console.WriteLine("Only pngs allowed, continuing: " + path);
+                return;
+            }
+
+            Bitmap bitmap = new Bitmap(path);
+            int total = 0;
+            int r = 0, g = 0, b = 0;
+
+            if (bitmap.Height != bitmap.Width)
+            {
+                Console.WriteLine("Only square images allowed, continuing: " + path);
+                return;
+            }
+
+            //gets color values of every pixel
+            for (int i = 0; i < bitmap.Height; i++)
+            {
+                for (int j = 0; j < bitmap.Width; j++)
+                {
+                    Color c = bitmap.GetPixel(j, i);
+
+                    //skips if alpha levels are below a threshold
+                    if (c.A < 127)
+                    {
+                        Console.WriteLine(c.A + " - " + path);
+                        r += 0;
+                        g += 0;
+                        b += 0;
+                    }
+                    else
+                    {
+                        r += c.R;
+                        g += c.G;
+                        b += c.B;
+                    }
+
+                    total++;
+                }
+            }
+
+            //extra digit in case of repeat results
+            int extra = geckoDict.Keys.Where(a => a.Contains((r / total) + "/" + (g / total) + "/" + (b / total))).Count();
+
+            //averaging red, green and blue values
+            geckoDict.Add((r / total) + "/" + (g / total) + "/" + (b / total) + "/" + extra, path);
+            bitmap.Dispose();
+
+            Console.WriteLine("Finished: " + path);
         }
 
         //dictionary to string
