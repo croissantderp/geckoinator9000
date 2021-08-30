@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace geckoinator9000
 {
@@ -65,6 +66,7 @@ namespace geckoinator9000
                         }
 
                         generateImage(x);
+
                         Console.WriteLine("generation done, go to output directory to see results");
                         break;
                     case "3":
@@ -85,52 +87,54 @@ namespace geckoinator9000
 
             Random random = new Random();
 
-            foreach (string path in directory)
+            Parallel.ForEach(directory, path => generateSingleImage(path, random, x));
+        }
+
+        static void generateSingleImage(string path, Random random, int x)
+        {
+            Image image = Image.FromFile(path);
+
+            double sourceRatio = (double)x / image.Width;
+            int sx = (int)Math.Round(image.Width * sourceRatio);
+            int sy = (int)Math.Round(image.Height * sourceRatio);
+
+            double ratio = (double)(32 * x) / image.Width;
+
+            Bitmap sourceBitmap = new Bitmap(image, new Size(sx, sy));
+            Bitmap bitmap = new Bitmap((int)Math.Round(image.Width * ratio), roundRatio(image.Height * ratio));
+
+            for (int i = 0; i < sx; i++)
             {
-                Image image = Image.FromFile(path);
-                
-                double sourceRatio = (double)x / image.Width;
-                int sx = (int)Math.Round(image.Width * sourceRatio);
-                int sy = (int)Math.Round(image.Height * sourceRatio);
-
-                double ratio = (double)(32 * x) / image.Width;
-
-                Bitmap sourceBitmap = new Bitmap(image, new Size(sx, sy));
-                Bitmap bitmap = new Bitmap((int)Math.Round(image.Width * ratio), roundRatio(image.Height * ratio));
-                
-                for (int i = 0; i < sx; i++)
+                for (int j = 0; j < sy; j++)
                 {
-                    for (int j = 0; j < sy; j++)
+                    Color c = sourceBitmap.GetPixel(i, j);
+
+                    string key = getClosestColor(c);
+
+                    Regex regex = new Regex(@$"^{key}.+");
+
+                    string[] keys = geckoDict.Keys.Where(a => regex.Match(a).Success).ToArray();
+
+                    int index = random.Next(keys.Length);
+
+                    string finalKey = keys[index];
+
+                    using (Graphics g = Graphics.FromImage(bitmap))
                     {
-                        Color c = sourceBitmap.GetPixel(i, j);
-
-                        string key = getClosestColor(c);
-
-                        Regex regex = new Regex(@$"^{key}.+");
-
-                        string[] keys = geckoDict.Keys.Where(a => regex.Match(a).Success).ToArray();
-
-                        int index = random.Next(keys.Length);
-
-                        string finalKey = keys[index];
-
-                        using (Graphics g = Graphics.FromImage(bitmap))
-                        {
-                            Bitmap finalImage = new Bitmap(Image.FromFile(geckoDict[finalKey]), 32, 32);
-                            g.DrawImage(finalImage, i * 32, j * 32);
-                            finalImage.Dispose();
-                            g.Dispose();
-                        }
+                        Bitmap finalImage = new Bitmap(Image.FromFile(geckoDict[finalKey]), 32, 32);
+                        g.DrawImage(finalImage, i * 32, j * 32);
+                        finalImage.Dispose();
+                        g.Dispose();
                     }
                 }
-
-                Console.WriteLine("finished " + path.Split("\\").Last());
-                bitmap.Save(@$"../../../output/{path.Split("\\").Last()}", ImageFormat.Png);
-
-                image.Dispose();
-                sourceBitmap.Dispose();
-                bitmap.Dispose();
             }
+
+            Console.WriteLine("finished " + path.Split("\\").Last());
+            bitmap.Save(@$"../../../output/{path.Split("\\").Last()}", ImageFormat.Png);
+
+            image.Dispose();
+            sourceBitmap.Dispose();
+            bitmap.Dispose();
         }
 
         //based on https://www.codeproject.com/articles/17044/find-the-nearest-color-with-c-using-the-euclidean#:~:text=%20Find%20the%20Nearest%20Color%20with%20C%23%20-,paste%20the%20method...%204%20History.%20%20More%20
