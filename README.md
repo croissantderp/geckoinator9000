@@ -3,6 +3,7 @@
 
 [example](https://youtu.be/L4Iy6brUc1k)  
 [landscape](https://cdn.discordapp.com/attachments/841534003756007458/881963113518362664/DSCN5763.png)  
+[web version created by](https://anematode.github.io/capstone-project/) [@anematode](https://github.com/anematode)  
 
 # setup
  Download the zip file and run the exe in bin.  
