@@ -18,6 +18,15 @@ namespace geckoinator9000
 
         static void Main(string[] args)
         {
+            if (!Directory.Exists(@"../../../output/"))
+            {
+                Directory.CreateDirectory(@"../../../output/");
+            }
+            if (!Directory.Exists(@"../../../input/"))
+            {
+                Directory.CreateDirectory(@"../../../input/");
+            }
+
             Console.WriteLine(options);
             
             while (true)
@@ -26,76 +35,89 @@ namespace geckoinator9000
 
                 string option = Console.ReadLine();
 
-                switch (option)
+                try
                 {
-                    //options
-                    case "0":
-                        Console.WriteLine(options);
-                        break;
-                    //load geckos into memory
-                    case "1":
-                        if (File.Exists(@"../../../sourceImgs/data.txt"))
-                        {
-                            StreamReader data = new StreamReader(@"../../../sourceImgs/data.txt");
-                            string[] values = data.ReadToEnd().Split(";");
-                            geckoDict = values.Select(a => a
-                            .Split(","))
-                            .Where(part => part.Length == 2)
-                            .ToDictionary(a => a[0], a=> a[1]);
-                            data.Dispose();
-                            Console.WriteLine("Load complete");
-                        }
-                        else
-                        {
-                            loadImages();
-                            Console.WriteLine("Load complete, written to file");
-                        }
-                        break;
-                    //creates mosaics
-                    case "2":
-                        if (geckoDict.Count() == 0)
-                        {
-                            Console.WriteLine("Make sure source images are loaded by running 1");
+                    switch (option)
+                    {
+                        //options
+                        case "0":
+                            Console.WriteLine(options);
                             break;
-                        }
-
-                        Console.WriteLine("Enter number of images to tile horizontally (high values will lead to long processing times, recommended cap: 128):");
-                        Console.Write("> ");
-                        int x;
-                        if (!int.TryParse(Console.ReadLine(), out x))
-                        {
-                            Console.WriteLine("Input not a number");
+                        //load geckos into memory
+                        case "1":
+                            if (File.Exists(@"../../../sourceImgs/data.txt"))
+                            {
+                                StreamReader data = new StreamReader(@"../../../sourceImgs/data.txt");
+                                string[] values = data.ReadToEnd().Split(";");
+                                geckoDict = values.Select(a => a
+                                .Split(","))
+                                .Where(part => part.Length == 2)
+                                .ToDictionary(a => a[0], a => a[1]);
+                                data.Dispose();
+                                Console.WriteLine("Load complete");
+                            }
+                            else
+                            {
+                                loadImages();
+                                Console.WriteLine("Load complete, written to file");
+                            }
                             break;
-                        }
+                        //creates mosaics
+                        case "2":
+                            if (geckoDict.Count() == 0)
+                            {
+                                Console.WriteLine("Make sure source images are loaded by running 1");
+                                break;
+                            }
 
-                        Console.WriteLine("Enter width of individual gecko (default 32):");
-                        Console.Write("> ");
-                        int geckoWidth;
-                        string temp = Console.ReadLine();
-                        if (temp == "")
-                        {
-                            geckoWidth = 32;
-                        }
-                        else if (!int.TryParse(temp, out geckoWidth))
-                        {
-                            Console.WriteLine("Input not a number");
+                            Console.WriteLine("Enter number of images to tile horizontally (high values will lead to long processing times, recommended cap: 128):");
+                            Console.Write("> ");
+                            int x;
+                            if (!int.TryParse(Console.ReadLine(), out x))
+                            {
+                                Console.WriteLine("Input not a number");
+                                break;
+                            }
+
+                            Console.WriteLine("Enter width of individual gecko (default 32):");
+                            Console.Write("> ");
+                            int geckoWidth;
+                            string temp = Console.ReadLine();
+                            if (temp == "")
+                            {
+                                geckoWidth = 32;
+                            }
+                            else if (!int.TryParse(temp, out geckoWidth))
+                            {
+                                Console.WriteLine("Input not a number");
+                                break;
+                            }
+
+                            Console.WriteLine("Use dithering? (default N) Y/N:");
+                            Console.Write("> ");
+                            bool dither;
+                            temp = Console.ReadLine();
+                            dither = temp == "Y" ? true : false;
+
+                            Console.WriteLine("Starting process... (this could take a while)");
+                            generateImage(x, geckoWidth, dither);
+
+                            Console.WriteLine("Generation done, go to output directory to see results");
                             break;
-                        }
-
-                        Console.WriteLine("Starting process...");
-                        generateImage(x, geckoWidth);
-
-                        Console.WriteLine("Generation done, go to output directory to see results");
-                        break;
-                    //quits program
-                    case "3":
-                        return;
+                        //quits program
+                        case "3":
+                            return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("operation failed: " + ex.ToString());
                 }
             }
         }
 
         //geckofys all the images in input folder
-        static void generateImage(int x, int geckoWidth)
+        static void generateImage(int x, int geckoWidth, bool dither)
         {
             string[] directory = Directory.GetFiles(@"../../../input");
 
@@ -107,11 +129,19 @@ namespace geckoinator9000
 
             Random random = new Random();
 
-            //allows images to be geckofy'd in parallel
-            Parallel.ForEach(directory, path => generateSingleImage(path, random, x, geckoWidth));
+            if (dither)
+            {
+                //allows images to be geckofy'd in parallel
+                Parallel.ForEach(directory, path => DITHERgenerateSingleImage(path, random, x, geckoWidth));
+            }
+            else
+            {
+                //allows images to be geckofy'd in parallel
+                Parallel.ForEach(directory, path => generateSingleImage(path, random, x, geckoWidth));
+            }
         }
 
-        //geckofys a single image
+        //geckofys a single image without dithering
         static void generateSingleImage(string path, Random random, int x, int geckoWidth)
         {
             //calculate image stats
@@ -133,10 +163,10 @@ namespace geckoinator9000
                     Color c = sourceBitmap.GetPixel(i, j);
 
                     //gets closest color present in gecko dictionary
-                    string key = getClosestColor(c);
+                    Color nc = getClosestColor(c);
 
                     //matches any key with closest color
-                    Regex regex = new Regex(@$"^{key}.+");
+                    Regex regex = new Regex(@$"^{nc.R}/{nc.G}/{nc.B}.+");
 
                     string[] keys = geckoDict.Keys.Where(a => regex.Match(a).Success).ToArray();
 
@@ -158,7 +188,7 @@ namespace geckoinator9000
 
             string name = path.Split("\\").Last();
 
-            Console.WriteLine("Finished " + name);
+            Console.WriteLine("Finished geckofying " + name);
 
             //saves image as png
             bitmap.Save(@$"../../../output/{string.Join(".", name.Split(".").SkipLast(1))}.png", ImageFormat.Png);
@@ -169,8 +199,115 @@ namespace geckoinator9000
             bitmap.Dispose();
         }
 
+        //geckofys a single image using Floyd-Steinberg dithering
+        static void DITHERgenerateSingleImage(string path, Random random, int ox, int geckoWidth)
+        {
+            string name = path.Split("\\").Last();
+
+            //calculate image stats
+            Image image = Image.FromFile(path);
+
+            double sourceRatio = (double)ox / image.Width;
+            int sx = (int)Math.Round(image.Width * sourceRatio);
+            int sy = (int)Math.Round(image.Height * sourceRatio);
+
+            Bitmap sourceBitmap = new Bitmap(image, new Size(sx, sy));
+            Bitmap bitmap = new Bitmap(geckoWidth * sx, geckoWidth * sy);
+
+            //processes and dithers small source image
+            for (int y = 0; y < sy; y++)
+            {
+                for (int x = 0; x < sx; x++)
+                {
+                    //gets color of pixel
+                    Color c = sourceBitmap.GetPixel(x, y);
+
+                    //gets closest color present in gecko dictionary
+                    Color nc = getClosestColor(c);
+
+                    sourceBitmap.SetPixel(x, y, nc);
+
+                    int RedError = c.R - nc.R;
+                    int greenError = c.G - nc.G;
+                    int BlueError = c.B - nc.B;
+
+                    if (x + 1 < sourceBitmap.Width)
+                    {
+                        sourceBitmap.SetPixel(x + 1, y, calculateError(sourceBitmap.GetPixel(x + 1, y), RedError, greenError, BlueError, 7));
+                        if (y + 1 < sourceBitmap.Height)
+                        {
+                            sourceBitmap.SetPixel(x + 1, y + 1, calculateError(sourceBitmap.GetPixel(x + 1, y + 1), RedError, greenError, BlueError, 1));
+                        }
+                    }
+                    if (x - 1 > 0 && y + 1 < sourceBitmap.Height)
+                    {
+                        sourceBitmap.SetPixel(x - 1, y + 1, calculateError(sourceBitmap.GetPixel(x - 1, y + 1), RedError, greenError, BlueError, 3));
+                    }
+                    if (y + 1 < sourceBitmap.Height)
+                    {
+                        sourceBitmap.SetPixel(x, y + 1, calculateError(sourceBitmap.GetPixel(x, y + 1), RedError, greenError, BlueError, 5));
+                    }
+                }
+            }
+
+            Console.WriteLine("Finished preparing " + name);
+
+            //gets color of pixels in small source image
+            for (int i = 0; i < sx; i++)
+            {
+                for (int j = 0; j < sy; j++)
+                {
+                    //gets color of pixel
+                    Color c = sourceBitmap.GetPixel(i, j);
+
+                    //matches any key with closest color
+                    Regex regex = new Regex(@$"^{c.R}/{c.G}/{c.B}.+");
+
+                    string[] keys = geckoDict.Keys.Where(a => regex.Match(a).Success).ToArray();
+
+                    //chooses a random one of the keys if more than 1 present
+                    int index = random.Next(keys.Length);
+
+                    string finalKey = keys[index];
+
+                    //appends gecko image to final bitmap
+                    using (Graphics g = Graphics.FromImage(bitmap))
+                    {
+                        Bitmap finalImage = new Bitmap(Image.FromFile(geckoDict[finalKey]), geckoWidth, geckoWidth);
+                        g.DrawImage(finalImage, i * geckoWidth, j * geckoWidth);
+                        finalImage.Dispose();
+                        g.Dispose();
+                    }
+                }
+            }
+
+            Console.WriteLine("Finished geckofying " + name);
+
+            //saves image as png
+            bitmap.Save(@$"../../../output/{string.Join(".", name.Split(".").SkipLast(1))}.png", ImageFormat.Png);
+
+            //disposes all disposable stuff
+            image.Dispose();
+            sourceBitmap.Dispose();
+            bitmap.Dispose();
+        }
+
+        //calculates error amounts for pixel
+        static Color calculateError(Color inputColor, int rErr, int gErr, int bErr, int diviser)
+        {
+            int finalR = inputColor.R + ((rErr * diviser) >> 4);
+            int finalG = inputColor.G + ((gErr * diviser) >> 4);
+            int finalB = inputColor.B + ((bErr * diviser) >> 4);
+
+            finalR = finalR < 255 ? (finalR > 0 ? finalR : 0) : 255;
+            finalG = finalG < 255 ? (finalG > 0 ? finalG : 0) : 255;
+            finalB = finalB < 255 ? (finalB > 0 ? finalB : 0) : 255;
+
+            return Color.FromArgb(finalR, finalG, finalB);
+        }
+
         //based on https://www.codeproject.com/articles/17044/find-the-nearest-color-with-c-using-the-euclidean#:~:text=%20Find%20the%20Nearest%20Color%20with%20C%23%20-,paste%20the%20method...%204%20History.%20%20More%20
-        static string getClosestColor(Color input)
+        static Color getClosestColor(Color input)
         {
             double inputR = Convert.ToDouble(input.R);
             double inputG = Convert.ToDouble(input.G);
@@ -178,31 +315,39 @@ namespace geckoinator9000
 
             double distance = 500.0;
 
-            string closestKey = "";
+            //string closestKey = "";
+            (double, double, double) thing = (0,0,0);
 
             //gets closest color present in dictionary
             foreach (string key in geckoDict.Keys)
             {
-                double red = Math.Pow(double.Parse(key.Split("/")[0]) - inputR, 2.0);
-                double green = Math.Pow(double.Parse(key.Split("/")[1]) - inputG, 2.0);
-                double blue = Math.Pow(double.Parse(key.Split("/")[2]) - inputB, 2.0);
+                double keyRed = double.Parse(key.Split("/")[0]);
+                double keyGreen = double.Parse(key.Split("/")[1]);
+                double keyBlue = double.Parse(key.Split("/")[2]);
+
+                double red = Math.Pow(keyRed - inputR, 2.0);
+                double green = Math.Pow(keyGreen - inputG, 2.0);
+                double blue = Math.Pow(keyBlue - inputB, 2.0);
 
                 var temp = Math.Sqrt(red + green + blue);
 
                 if (temp == 0.0)
                 {
-                    closestKey = key;
+                    thing = (keyRed, keyGreen, keyBlue);
+                    //closestKey = key;
                     break;
                 }
                 else if (temp < distance)
                 {
                     distance = temp;
-                    closestKey = key;
+                    thing = (keyRed, keyGreen, keyBlue);
+                    //closestKey = key;
                 }
             }
 
             //returns closest color
-            return closestKey.Split("/")[0] + "/" + closestKey.Split("/")[1] + "/" + closestKey.Split("/")[2];
+            //return closestKey.Split("/")[0] + "/" + closestKey.Split("/")[1] + "/" + closestKey.Split("/")[2];
+            return Color.FromArgb((int)thing.Item1, (int)thing.Item2, (int)thing.Item3);
         }
 
         //parses images in sourceImgs and saves them into a dictionary
@@ -256,7 +401,6 @@ namespace geckoinator9000
                     //skips if alpha levels are below a threshold
                     if (c.A < 127)
                     {
-                        Console.WriteLine(c.A + " - " + path);
                         r += 0;
                         g += 0;
                         b += 0;
