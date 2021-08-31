@@ -96,7 +96,7 @@ namespace geckoinator9000
                             Console.WriteLine("Use dithering? (default N) Y/N:");
                             Console.Write("> ");
                             bool dither;
-                            temp = Console.ReadLine();
+                            temp = Console.ReadLine().ToUpper();
                             dither = temp == "Y" ? true : false;
 
                             Console.WriteLine("Starting process... (this could take a while)");
@@ -214,6 +214,8 @@ namespace geckoinator9000
             Bitmap sourceBitmap = new Bitmap(image, new Size(sx, sy));
             Bitmap bitmap = new Bitmap(geckoWidth * sx, geckoWidth * sy);
 
+            image.Dispose();
+
             //processes and dithers small source image
             for (int y = 0; y < sy; y++)
             {
@@ -287,7 +289,6 @@ namespace geckoinator9000
             bitmap.Save(@$"../../../output/{string.Join(".", name.Split(".").SkipLast(1))}.png", ImageFormat.Png);
 
             //disposes all disposable stuff
-            image.Dispose();
             sourceBitmap.Dispose();
             bitmap.Dispose();
         }
