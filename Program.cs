@@ -392,6 +392,8 @@ namespace geckoinator9000
                 return;
             }
 
+            bool edited = false;
+
             //gets color values of every pixel
             for (int i = 0; i < bitmap.Height; i++)
             {
@@ -405,6 +407,11 @@ namespace geckoinator9000
                         r += 0;
                         g += 0;
                         b += 0;
+
+                        //sets background to black as well in order to not cause issues
+                        bitmap.SetPixel(j, i, Color.FromArgb(0, 0, 0));
+
+                        edited = true;
                     }
                     else
                     {
@@ -422,7 +429,19 @@ namespace geckoinator9000
 
             //averaging red, green and blue values
             geckoDict.Add((r / total) + "/" + (g / total) + "/" + (b / total) + "/" + extra, path);
-            bitmap.Dispose();
+
+            if (edited)
+            {
+                Bitmap bitmap2 = new Bitmap(bitmap);
+                bitmap.Dispose();
+
+                bitmap2.Save(path, ImageFormat.Png);
+                bitmap2.Dispose();
+            }
+            else
+            {
+                bitmap.Dispose();
+            }
 
             Console.WriteLine("Finished: " + path);
         }
