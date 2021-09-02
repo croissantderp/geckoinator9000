@@ -70,19 +70,24 @@ namespace geckoinator9000
                                 break;
                             }
 
-                            Console.WriteLine("Enter number of images to tile horizontally (high values will lead to long processing times, recommended cap: 128):");
+                            Console.WriteLine("Enter number of images to tile horizontally (high values will lead to long processing times, recommended cap: 256. default: 128):");
                             Console.Write("> ");
                             int x;
-                            if (!int.TryParse(Console.ReadLine(), out x))
+                            string temp = Console.ReadLine();
+                            if (temp == "")
+                            {
+                                x = 128;
+                            }
+                            else if (!int.TryParse(temp, out x))
                             {
                                 Console.WriteLine("Input not a number");
                                 break;
                             }
 
-                            Console.WriteLine("Enter width of individual gecko (default 32):");
+                            Console.WriteLine("Enter width of individual gecko (default: 32):");
                             Console.Write("> ");
                             int geckoWidth;
-                            string temp = Console.ReadLine();
+                            temp = Console.ReadLine();
                             if (temp == "")
                             {
                                 geckoWidth = 32;
@@ -93,11 +98,11 @@ namespace geckoinator9000
                                 break;
                             }
 
-                            Console.WriteLine("Use dithering? (default N) Y/N:");
+                            Console.WriteLine("Use dithering? (default: Y) Y/N:");
                             Console.Write("> ");
                             bool dither;
                             temp = Console.ReadLine().ToUpper();
-                            dither = temp == "Y" ? true : false;
+                            dither = temp == "N" ? false : true;
 
                             Console.WriteLine("Starting process... (this could take a while)");
                             generateImage(x, geckoWidth, dither);
@@ -142,17 +147,33 @@ namespace geckoinator9000
         }
 
         //geckofys a single image without dithering
-        static void generateSingleImage(string path, Random random, int x, int geckoWidth)
+        static void generateSingleImage(string path, Random random, int ox, int geckoWidth)
         {
+            string name = path.Split("\\").Last();
+
             //calculate image stats
             Image image = Image.FromFile(path);
 
-            double sourceRatio = (double)x / image.Width;
+            double sourceRatio = (double)ox / image.Width;
             int sx = (int)Math.Round(image.Width * sourceRatio);
             int sy = (int)Math.Round(image.Height * sourceRatio);
 
             Bitmap sourceBitmap = new Bitmap(image, new Size(sx, sy));
             Bitmap bitmap = new Bitmap(geckoWidth * sx, geckoWidth * sy);
+
+            int[,] alphas = new int[sx, sy];
+
+            for (int y = 0; y < sy; y++)
+            {
+                for (int x = 0; x < sx; x++)
+                {
+                    alphas[x, y] = sourceBitmap.GetPixel(x, y).A;
+                }
+            }
+
+            image.Dispose();
+
+            Console.WriteLine("Finished initializing " + name);
 
             //gets color of pixels in small source image
             for (int i = 0; i < sx; i++)
@@ -163,7 +184,7 @@ namespace geckoinator9000
                     Color c = sourceBitmap.GetPixel(i, j);
 
                     //gets closest color present in gecko dictionary
-                    Color nc = getClosestColor(c);
+                    Color nc = getClosestColor(c, alphas[i, j]);
 
                     //matches any key with closest color
                     Regex regex = new Regex(@$"^{nc.R}/{nc.G}/{nc.B}.+");
@@ -186,15 +207,12 @@ namespace geckoinator9000
                 }
             }
 
-            string name = path.Split("\\").Last();
-
             Console.WriteLine("Finished geckofying " + name);
 
             //saves image as png
             bitmap.Save(@$"../../../output/{string.Join(".", name.Split(".").SkipLast(1))}.png", ImageFormat.Png);
 
             //disposes all disposable stuff
-            image.Dispose();
             sourceBitmap.Dispose();
             bitmap.Dispose();
         }
@@ -214,7 +232,19 @@ namespace geckoinator9000
             Bitmap sourceBitmap = new Bitmap(image, new Size(sx, sy));
             Bitmap bitmap = new Bitmap(geckoWidth * sx, geckoWidth * sy);
 
+            int[,] alphas = new int[sx, sy];
+
+            for (int y = 0; y < sy; y++)
+            {
+                for (int x = 0; x < sx; x++)
+                {
+                    alphas[x, y] = sourceBitmap.GetPixel(x, y).A;
+                }
+            }
+
             image.Dispose();
+
+            Console.WriteLine("Finished initializing " + name);
 
             //processes and dithers small source image
             for (int y = 0; y < sy; y++)
@@ -223,9 +253,8 @@ namespace geckoinator9000
                 {
                     //gets color of pixel
                     Color c = sourceBitmap.GetPixel(x, y);
-
                     //gets closest color present in gecko dictionary
-                    Color nc = getClosestColor(c);
+                    Color nc = getClosestColor(c, alphas[x, y]);
 
                     sourceBitmap.SetPixel(x, y, nc);
 
@@ -308,11 +337,13 @@ namespace geckoinator9000
         }
 
         //based on https://www.codeproject.com/articles/17044/find-the-nearest-color-with-c-using-the-euclidean#:~:text=%20Find%20the%20Nearest%20Color%20with%20C%23%20-,paste%20the%20method...%204%20History.%20%20More%20
-        static Color getClosestColor(Color input)
+        static Color getClosestColor(Color input, int alpha)
         {
-            double inputR = Convert.ToDouble(input.R);
-            double inputG = Convert.ToDouble(input.G);
-            double inputB = Convert.ToDouble(input.B);
+            double averageA = alpha / 255.0;
+
+            double inputR = Convert.ToDouble(input.R * averageA);
+            double inputG = Convert.ToDouble(input.G * averageA);
+            double inputB = Convert.ToDouble(input.B * averageA);
 
             double distance = 500.0;
 
@@ -401,15 +432,17 @@ namespace geckoinator9000
                 {
                     Color c = bitmap.GetPixel(j, i);
 
-                    //skips if alpha levels are below a threshold
-                    if (c.A < 127)
+                    //handles non opaque alpha levels
+                    if (c.A < 255)
                     {
+                        int alpha = c.A / 255;
+
                         r += 0;
                         g += 0;
                         b += 0;
 
                         //sets background to black as well in order to not cause issues
-                        bitmap.SetPixel(j, i, Color.FromArgb(0, 0, 0));
+                        bitmap.SetPixel(j, i, Color.FromArgb(255, c.R * alpha, c.G * alpha, c.B * alpha));
 
                         edited = true;
                     }
