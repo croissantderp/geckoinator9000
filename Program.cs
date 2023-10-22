@@ -16,6 +16,8 @@ namespace geckoinator9000
 
         static string options = "Options:\n0: show options\n1: load images into memory\n2: parse images in /input/ and uploads to /output/\n3: exits the program";
 
+        static ParallelOptions pOptions = new ParallelOptions();
+
         static void Main(string[] args)
         {
             if (!Directory.Exists(@"../../../output/"))
@@ -27,8 +29,24 @@ namespace geckoinator9000
                 Directory.CreateDirectory(@"../../../input/");
             }
 
+            Console.WriteLine("Enter the maximum # of parallel processes allowed (high numbers can cause memory overflow, default 32):");
+            Console.Write("> ");
+            int maxNum;
+            string maxNumIn = Console.ReadLine();
+            if (maxNumIn == "")
+            {
+                maxNum = 32;
+            }
+            else if (!int.TryParse(maxNumIn, out maxNum))
+            {
+                Console.WriteLine("Input not a number");
+                return;
+            }
+
+            pOptions.MaxDegreeOfParallelism = maxNum;
+
             Console.WriteLine(options);
-            
+
             while (true)
             {
                 Console.Write("> ");
@@ -137,12 +155,12 @@ namespace geckoinator9000
             if (dither)
             {
                 //allows images to be geckofy'd in parallel
-                Parallel.ForEach(directory, path => DITHERgenerateSingleImage(path, random, x, geckoWidth));
+                Parallel.ForEach(directory, pOptions, path => DITHERgenerateSingleImage(path, random, x, geckoWidth));
             }
             else
             {
                 //allows images to be geckofy'd in parallel
-                Parallel.ForEach(directory, path => generateSingleImage(path, random, x, geckoWidth));
+                Parallel.ForEach(directory, pOptions, path => generateSingleImage(path, random, x, geckoWidth));
             }
         }
 
