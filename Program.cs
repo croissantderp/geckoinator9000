@@ -277,24 +277,24 @@ namespace geckoinator9000
                     sourceBitmap.SetPixel(x, y, nc);
 
                     int RedError = c.R - nc.R;
-                    int greenError = c.G - nc.G;
+                    int GreenError = c.G - nc.G;
                     int BlueError = c.B - nc.B;
 
                     if (x + 1 < sourceBitmap.Width)
                     {
-                        sourceBitmap.SetPixel(x + 1, y, calculateError(sourceBitmap.GetPixel(x + 1, y), RedError, greenError, BlueError, 7));
+                        sourceBitmap.SetPixel(x + 1, y, calculateError(sourceBitmap.GetPixel(x + 1, y), RedError, GreenError, BlueError, 7));
                         if (y + 1 < sourceBitmap.Height)
                         {
-                            sourceBitmap.SetPixel(x + 1, y + 1, calculateError(sourceBitmap.GetPixel(x + 1, y + 1), RedError, greenError, BlueError, 1));
+                            sourceBitmap.SetPixel(x + 1, y + 1, calculateError(sourceBitmap.GetPixel(x + 1, y + 1), RedError, GreenError, BlueError, 1));
                         }
                     }
                     if (x - 1 > 0 && y + 1 < sourceBitmap.Height)
                     {
-                        sourceBitmap.SetPixel(x - 1, y + 1, calculateError(sourceBitmap.GetPixel(x - 1, y + 1), RedError, greenError, BlueError, 3));
+                        sourceBitmap.SetPixel(x - 1, y + 1, calculateError(sourceBitmap.GetPixel(x - 1, y + 1), RedError, GreenError, BlueError, 3));
                     }
                     if (y + 1 < sourceBitmap.Height)
                     {
-                        sourceBitmap.SetPixel(x, y + 1, calculateError(sourceBitmap.GetPixel(x, y + 1), RedError, greenError, BlueError, 5));
+                        sourceBitmap.SetPixel(x, y + 1, calculateError(sourceBitmap.GetPixel(x, y + 1), RedError, GreenError, BlueError, 5));
                     }
                 }
             }
@@ -343,10 +343,12 @@ namespace geckoinator9000
         //calculates error amounts for pixel
         static Color calculateError(Color inputColor, int rErr, int gErr, int bErr, int diviser)
         {
+            //based on information from https://devblog.cyotek.com/post/dithering-an-image-using-the-floyd-steinberg-algorithm-in-csharp
             int finalR = inputColor.R + ((rErr * diviser) >> 4);
             int finalG = inputColor.G + ((gErr * diviser) >> 4);
             int finalB = inputColor.B + ((bErr * diviser) >> 4);
 
+            //in case errors cause over or underflow
             finalR = finalR < 255 ? (finalR > 0 ? finalR : 0) : 255;
             finalG = finalG < 255 ? (finalG > 0 ? finalG : 0) : 255;
             finalB = finalB < 255 ? (finalB > 0 ? finalB : 0) : 255;
@@ -365,8 +367,7 @@ namespace geckoinator9000
 
             double distance = 500.0;
 
-            //string closestKey = "";
-            (double, double, double) thing = (0,0,0);
+            (double, double, double) closestKey = (0,0,0);
 
             //gets closest color present in dictionary
             foreach (string key in geckoDict.Keys)
@@ -383,21 +384,18 @@ namespace geckoinator9000
 
                 if (temp == 0.0)
                 {
-                    thing = (keyRed, keyGreen, keyBlue);
-                    //closestKey = key;
+                    closestKey = (keyRed, keyGreen, keyBlue);
                     break;
                 }
                 else if (temp < distance)
                 {
                     distance = temp;
-                    thing = (keyRed, keyGreen, keyBlue);
-                    //closestKey = key;
+                    closestKey = (keyRed, keyGreen, keyBlue);
                 }
             }
 
             //returns closest color
-            //return closestKey.Split("/")[0] + "/" + closestKey.Split("/")[1] + "/" + closestKey.Split("/")[2];
-            return Color.FromArgb((int)thing.Item1, (int)thing.Item2, (int)thing.Item3);
+            return Color.FromArgb((int)closestKey.Item1, (int)closestKey.Item2, (int)closestKey.Item3);
         }
 
         //parses images in sourceImgs and saves them into a dictionary
